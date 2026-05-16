@@ -1,0 +1,154 @@
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum StockMovementType {
+  RESTOCK
+  ADJUSTMENT
+  SALE
+  CANCELLATION
+  INITIAL
+}
+
+enum OrderStatus {
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  OTHER
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+model User {
+  id               String          @id @default(cuid())
+  email            String          @unique @db.VarChar(255)
+  name             String?         @db.VarChar(255)
+  passwordHash     String          @map("password_hash") @db.VarChar(255)
+  role             Role            @default(STAFF)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  stockMovements   StockMovement[]
+  ordersCreated    Order[]         @relation("OrderCreatedBy")
+  ordersCancelled  Order[]         @relation("OrderCancelledBy")
+
+  @@index([email])
+  @@map("users")
+}
+
+model Product {
+  id                String          @id @default(cuid())
+  name              String          @unique @db.VarChar(255)
+  sku               String          @unique @db.VarChar(100)
+  category          String          @db.VarChar(120)
+  barcode           String?         @unique @db.VarChar(120)
+  costPrice         Decimal         @map("cost_price") @db.Decimal(12, 2)
+  sellingPrice      Decimal         @map("selling_price") @db.Decimal(12, 2)
+  stockQuantity     Int             @default(0) @map("stock_quantity")
+  lowStockThreshold Int             @default(5) @map("low_stock_threshold")
+  description       String?         @db.Text
+  imageUrl          String?         @map("image_url") @db.VarChar(2048)
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  stockMovements    StockMovement[]
+  orderItems        OrderItem[]
+
+  @@index([category])
+  @@index([name])
+  @@index([sku])
+  @@index([barcode])
+  @@index([stockQuantity])
+  @@index([createdAt])
+  @@map("products")
+}
+
+model StockMovement {
+  id             String            @id @default(cuid())
+  productId      String            @map("product_id")
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderId        String?           @map("order_id")
+  order          Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  type           StockMovementType
+  quantityChange Int               @map("quantity_change")
+  quantityBefore Int               @map("quantity_before")
+  quantityAfter  Int               @map("quantity_after")
+  reason         String?           @db.VarChar(500)
+  createdById    String?           @map("created_by_id")
+  createdBy      User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  @@index([productId, createdAt])
+  @@index([orderId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
+
+model Order {
+  id             String        @id @default(cuid())
+  orderNumber    String        @unique @map("order_number") @db.VarChar(32)
+  status         OrderStatus   @default(COMPLETED)
+  customerName   String?       @map("customer_name") @db.VarChar(255)
+  customerPhone  String?       @map("customer_phone") @db.VarChar(30)
+  subtotal       Decimal       @db.Decimal(12, 2)
+  discountType   DiscountType? @map("discount_type")
+  discountValue  Decimal       @default(0) @map("discount_value") @db.Decimal(12, 2)
+  discountAmount Decimal       @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  taxRate        Decimal       @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount      Decimal       @map("tax_amount") @db.Decimal(12, 2)
+  total          Decimal       @db.Decimal(12, 2)
+  paymentMethod  PaymentMethod @map("payment_method")
+  notes          String?       @db.VarChar(500)
+  createdById    String        @map("created_by_id")
+  createdBy      User          @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  cancelledAt    DateTime?     @map("cancelled_at")
+  cancelledById  String?       @map("cancelled_by_id")
+  cancelledBy    User?         @relation("OrderCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  cancelReason   String?       @map("cancel_reason") @db.VarChar(500)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  items          OrderItem[]
+  stockMovements StockMovement[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([orderNumber])
+  @@index([createdById])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String  @map("order_id")
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String  @map("product_id")
+  product     Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productName String  @map("product_name") @db.VarChar(255)
+  productSku  String  @map("product_sku") @db.VarChar(100)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(12, 2)
+  quantity    Int
+  lineTotal   Decimal @map("line_total") @db.Decimal(12, 2)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
