@@ -321,7 +321,7 @@ export function ProductsView({ initialData, initialQuery }: Props) {
                               aria-label="Close menu"
                               onClick={() => setOpenMenuId(null)}
                             />
-                            <div className="border-border relative right-0 z-50 mt-1 w-44 rounded-lg border bg-popover p-1 shadow-lg">
+                            <div className="border-border absolute right-0 z-50 mt-1 w-44 rounded-lg border bg-popover p-1 shadow-lg">
                               <button
                                 type="button"
                                 className="hover:bg-muted flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm"

@@ -16,7 +16,7 @@ export type OrderTotalsInput = {
 export type OrderTotals = {
   subtotal: number
   discountAmount: number
-  subtotalAfterDiscount: number
+  taxableAmount: number
   taxAmount: number
   total: number
 }
@@ -31,14 +31,10 @@ export function computeLineTotal(unitPrice: number, quantity: number) {
 
 export function computeOrderTotals(input: OrderTotalsInput): OrderTotals {
   const subtotal = roundMoney(
-    input.lines.reduce(
-      (sum, line) => sum + computeLineTotal(line.unitPrice, line.quantity),
-      0
-    )
+    input.lines.reduce((sum, line) => sum + computeLineTotal(line.unitPrice, line.quantity), 0)
   )
 
   let discountAmount = 0
-
   if (input.discountType && input.discountValue > 0) {
     if (input.discountType === "PERCENT") {
       const pct = Math.min(100, Math.max(0, input.discountValue))
@@ -48,20 +44,12 @@ export function computeOrderTotals(input: OrderTotalsInput): OrderTotals {
     }
   }
 
-  const subtotalAfterDiscount = roundMoney(subtotal - discountAmount)
-
+  const taxableAmount = roundMoney(Math.max(0, subtotal - discountAmount))
   const taxRate = Math.max(0, input.taxRate)
-  const taxAmount = roundMoney(subtotalAfterDiscount * (taxRate / 100))
+  const taxAmount = roundMoney(taxableAmount * (taxRate / 100))
+  const total = roundMoney(taxableAmount + taxAmount)
 
-  const total = roundMoney(subtotalAfterDiscount + taxAmount)
-
-  return {
-    subtotal,
-    discountAmount,
-    subtotalAfterDiscount,
-    taxAmount,
-    total,
-  }
+  return { subtotal, discountAmount, taxableAmount, taxAmount, total }
 }
 
 export function getDefaultTaxRate() {
